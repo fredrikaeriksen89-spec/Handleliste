@@ -262,13 +262,24 @@
             cursor: pointer;
         }
 
-        .product-thumbnail {
-            width: 40px;
-            height: 40px;
-            flex: 0 0 40px;
-            border-radius: 9px;
+        .product-thumbnail,
+        .product-placeholder {
+            width: 44px;
+            height: 44px;
+            flex: 0 0 44px;
+            border-radius: 10px;
             background: #f3f6f1;
+        }
+
+        .product-thumbnail {
             object-fit: cover;
+        }
+
+        .product-placeholder {
+            display: grid;
+            place-items: center;
+            font-size: 1.25rem;
+            line-height: 1;
         }
 
         .item-name {
@@ -904,8 +915,10 @@
                 image.src = imageUrl;
                 image.alt = "";
                 image.loading = "lazy";
-                image.addEventListener("error", () => image.remove(), { once: true });
+                image.addEventListener("error", () => image.replaceWith(createProductPlaceholder()), { once: true });
                 item.appendChild(image);
+            } else {
+                item.appendChild(createProductPlaceholder());
             }
 
             const actions = document.createElement("div");
@@ -938,6 +951,14 @@
 
             actions.append(editButton, deleteButton);
             item.append(name, actions);
+        }
+
+        function createProductPlaceholder() {
+            const placeholder = document.createElement("span");
+            placeholder.className = "product-placeholder";
+            placeholder.textContent = "🛒";
+            placeholder.setAttribute("aria-hidden", "true");
+            return placeholder;
         }
 
         function renderEditForm(item, vare) {
