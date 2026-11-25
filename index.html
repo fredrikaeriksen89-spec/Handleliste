@@ -162,6 +162,31 @@
             line-height: 1.45;
         }
 
+        .share-button {
+            display: block;
+            margin: 0 auto 8px;
+            background: #edf3ee;
+            color: #286744;
+        }
+
+        .share-button:hover:not(:disabled) {
+            background: #e2ece4;
+        }
+
+        .share-help,
+        .sync-status {
+            margin: 0 0 16px;
+            color: #718078;
+            font-size: 0.82rem;
+            line-height: 1.45;
+            text-align: center;
+        }
+
+        .sync-status {
+            margin-top: 16px;
+            margin-bottom: 0;
+        }
+
         #reader {
             display: none;
             width: 100%;
@@ -382,6 +407,8 @@
         <p class="scanner-help">Skann en matvare for å søke etter den i Open Food Facts.</p>
         <div id="reader" role="region" aria-label="Kameravisning" aria-hidden="true"></div>
         <p class="scanner-status" id="scannerStatus" role="status" aria-live="polite"></p>
+        <button class="share-button" id="shareList" type="button">Kopier delelenke</button>
+        <p class="share-help" id="shareHelp">Ingen innlogging. Alle som får tak i liste-ID-en, kan se og endre listen.</p>
 
         <form class="input-group" id="addForm">
             <label for="vareInput" class="visually-hidden">Ny vare</label>
@@ -409,13 +436,33 @@
 
         <p class="message" id="message" role="status" aria-live="polite"></p>
         <p class="message error" id="errorMessage" role="alert"></p>
+        <p class="sync-status" id="syncStatus" role="status" aria-live="polite">Kobler til skyen …</p>
     </main>
 
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
     <script>
-        const storageKey = "handleliste-v1";
+        const legacyStorageKey = "handleliste-v1";
+        const listIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const currentUrl = new URL(window.location.href);
+        const requestedListId = currentUrl.searchParams.get("list");
+        const hasSharedListId = Boolean(requestedListId && listIdPattern.test(requestedListId));
+        const listId = hasSharedListId ? requestedListId.toLowerCase() : createId();
+        if (!hasSharedListId || requestedListId !== listId) {
+            currentUrl.searchParams.set("list", listId);
+            try {
+                window.history.replaceState(null, "", currentUrl);
+            } catch (error) {
+                console.error("Could not add the shared list ID to the URL:", error);
+            }
+        }
+        const storageKey = `${legacyStorageKey}-${listId}`;
         const inputFelt = document.getElementById("vareInput");
         const addForm = document.getElementById("addForm");
         const scanButton = document.getElementById("toggleScanner");
+        const shareButton = document.getElementById("shareList");
+        const shareHelp = document.getElementById("shareHelp");
         const readerDiv = document.getElementById("reader");
         const scannerStatus = document.getElementById("scannerStatus");
         const liste = document.getElementById("handleliste");
@@ -423,6 +470,33 @@
         const clearButton = document.getElementById("clearCompleted");
         const message = document.getElementById("message");
         const errorMessage = document.getElementById("errorMessage");
+        const syncStatus = document.getElementById("syncStatus");
+        const firebaseConfig = {
+            apiKey: "AIzaSyD9Swtb-5eqXfwOpl-ScJuwHvweeJAiurA",
+            authDomain: "handleliste-14dff.firebaseapp.com",
+            projectId: "handleliste-14dff",
+            storageBucket: "handleliste-14dff.firebasestorage.app",
+            messagingSenderId: "456006072297",
+            appId: "1:456006072297:web:309d64d318c52a04c0fd78",
+            measurementId: "G-XFC6NEH3M0"
+        };
+        let itemsCollection = null;
+        if (window.location.protocol === "file:") {
+            shareButton.disabled = true;
+            shareHelp.textContent = "Publiser appen på HTTPS for å synkronisere og dele listen.";
+            syncStatus.textContent = "Skysynkronisering krever HTTPS.";
+        } else {
+            try {
+                if (!window.firebase) throw new Error("Firebase SDK could not be loaded.");
+                const app = window.firebase.initializeApp(firebaseConfig);
+                const firestore = window.firebase.firestore();
+                itemsCollection = firestore.collection("lists").doc(listId).collection("items");
+            } catch (error) {
+                syncStatus.textContent = "Skysynkronisering er ikke tilgjengelig.";
+                showError(`Kunne ikke koble til Firebase. Listen lagres bare på denne enheten. ${error.message || ""}`.trim());
+            }
+        }
+        let needsLegacyMigration = false;
         let varer = loadItems();
         let editingId = null;
         let scanner = null;
@@ -430,9 +504,23 @@
         let scanHandled = false;
         let scannerLibraryPromise = null;
 
+        function createId() {
+            if (window.crypto && typeof window.crypto.randomUUID === "function") {
+                return window.crypto.randomUUID();
+            }
+            return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+                const random = Math.random() * 16 | 0;
+                return (character === "x" ? random : (random & 3 | 8)).toString(16);
+            });
+        }
+
         function loadItems() {
             try {
-                const saved = localStorage.getItem(storageKey);
+                let saved = localStorage.getItem(storageKey);
+                if (!saved && !hasSharedListId) {
+                    saved = localStorage.getItem(legacyStorageKey);
+                    needsLegacyMigration = Boolean(saved);
+                }
                 if (!saved) return [];
 
                 const parsed = JSON.parse(saved);
@@ -444,7 +532,10 @@
                 )) {
                     throw new Error("Ugyldig format");
                 }
-                return parsed;
+                return parsed.map((item) => ({
+                    ...item,
+                    createdAt: Number.isFinite(item.createdAt) ? item.createdAt : Date.now()
+                }));
             } catch (error) {
                 showError("Handlelisten kunne ikke leses fra nettleseren. Den vises tom inntil du legger til en vare.");
                 return [];
@@ -454,12 +545,93 @@
         function saveItems() {
             try {
                 localStorage.setItem(storageKey, JSON.stringify(varer));
-                errorMessage.textContent = "";
                 return true;
             } catch (error) {
                 showError("Endringene kunne ikke lagres. Kontroller lagringsplassen i nettleseren.");
                 return false;
             }
+        }
+
+        async function saveItemToCloud(item) {
+            const cacheSaved = saveItems();
+            if (!itemsCollection) return;
+
+            try {
+                await itemsCollection.doc(item.id).set({
+                    name: item.name,
+                    completed: item.completed,
+                    createdAt: item.createdAt
+                });
+                if (cacheSaved) errorMessage.textContent = "";
+            } catch (error) {
+                syncStatus.textContent = "Endringen er ikke synkronisert.";
+                showError(`Endringen er lagret lokalt, men kunne ikke synkroniseres. ${error.message || ""}`.trim());
+            }
+        }
+
+        async function deleteItemFromCloud(itemId) {
+            const cacheSaved = saveItems();
+            if (!itemsCollection) return;
+
+            try {
+                await itemsCollection.doc(itemId).delete();
+                if (cacheSaved) errorMessage.textContent = "";
+            } catch (error) {
+                syncStatus.textContent = "Slettingen er ikke synkronisert.";
+                showError(`Varen er fjernet lokalt, men kunne ikke slettes fra skyen. ${error.message || ""}`.trim());
+            }
+        }
+
+        function startCloudSync() {
+            if (!itemsCollection) return;
+            syncStatus.textContent = "Kobler til skyen …";
+            let receivedServerSnapshot = false;
+            const connectionTimeout = window.setTimeout(() => {
+                if (receivedServerSnapshot) return;
+                syncStatus.textContent = "Ingen kontakt med Firestore.";
+                showError("Kunne ikke nå Firestore. Kontroller at databasen er opprettet, reglene er publisert, og at du har nettforbindelse.");
+            }, 15000);
+
+            itemsCollection.onSnapshot(
+                { includeMetadataChanges: true },
+                async (snapshot) => {
+                    if (snapshot.metadata.fromCache) return;
+                    receivedServerSnapshot = true;
+                    window.clearTimeout(connectionTimeout);
+
+                    if (needsLegacyMigration && snapshot.empty && varer.length > 0) {
+                        try {
+                            await Promise.all(varer.map((item) =>
+                                itemsCollection.doc(item.id).set({
+                                    name: item.name,
+                                    completed: item.completed,
+                                    createdAt: item.createdAt
+                                })
+                            ));
+                            needsLegacyMigration = false;
+                            localStorage.removeItem(legacyStorageKey);
+                            return;
+                        } catch (error) {
+                            syncStatus.textContent = "Den gamle handlelisten er ikke synkronisert.";
+                            showError(`Kunne ikke overføre den lagrede handlelisten til skyen. ${error.message || ""}`.trim());
+                            return;
+                        }
+                    }
+
+                    needsLegacyMigration = false;
+                    varer = snapshot.docs
+                        .map((item) => ({ id: item.id, ...item.data() }))
+                        .sort((first, second) => first.createdAt - second.createdAt);
+                    if (saveItems()) errorMessage.textContent = "";
+                    renderList();
+                    syncStatus.textContent = "Synkronisert med skyen.";
+                },
+                (error) => {
+                    window.clearTimeout(connectionTimeout);
+                    syncStatus.textContent = "Skysynkronisering feilet.";
+                    showError(`Kunne ikke synkronisere handlelisten. ${error.message || ""}`.trim());
+                }
+            );
         }
 
         function showError(text) {
@@ -690,7 +862,7 @@
             checkbox.setAttribute("aria-label", `Marker ${vare.name} som ${vare.completed ? "ikke kjøpt" : "kjøpt"}`);
             checkbox.addEventListener("change", () => {
                 vare.completed = checkbox.checked;
-                saveItems();
+                saveItemToCloud(vare);
                 renderList();
             });
 
@@ -721,7 +893,7 @@
             deleteButton.setAttribute("aria-label", `Slett ${vare.name}`);
             deleteButton.addEventListener("click", () => {
                 varer = varer.filter((item) => item.id !== vare.id);
-                saveItems();
+                deleteItemFromCloud(vare.id);
                 announce(`${vare.name} er slettet.`);
                 renderList();
             });
@@ -769,7 +941,7 @@
                 }
                 vare.name = newName;
                 editingId = null;
-                saveItems();
+                saveItemToCloud(vare);
                 announce("Varen er oppdatert.");
                 renderList();
             });
@@ -784,15 +956,25 @@
             varer.push({
                 id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
                 name,
-                completed: false
+                completed: false,
+                createdAt: Date.now()
             });
-            saveItems();
+            saveItemToCloud(varer[varer.length - 1]);
             announce(`${name} er lagt til.`);
             inputFelt.value = "";
             renderList();
         }
 
         scanButton.addEventListener("click", toggleScanner);
+
+        shareButton.addEventListener("click", async () => {
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                announce("Delelenken er kopiert. Alle som har den, kan endre listen.");
+            } catch (error) {
+                showError("Kunne ikke kopiere lenken automatisk. Kopier adressen fra adressefeltet for å dele listen.");
+            }
+        });
 
         addForm.addEventListener("submit", (event) => {
             event.preventDefault();
@@ -807,13 +989,16 @@
 
         clearButton.addEventListener("click", () => {
             const removedCount = varer.filter((vare) => vare.completed).length;
+            const completedItems = varer.filter((vare) => vare.completed);
             varer = varer.filter((vare) => !vare.completed);
             saveItems();
+            completedItems.forEach((item) => deleteItemFromCloud(item.id));
             announce(`${removedCount} ${removedCount === 1 ? "vare er" : "varer er"} fjernet.`);
             renderList();
         });
 
         renderList();
+        startCloudSync();
     </script>
 </body>
 </html>
