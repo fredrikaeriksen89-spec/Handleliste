@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f3f6f1">
+    <title>Handleliste</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #23332d;
+            background: #f3f6f1;
+            font-synthesis: none;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            clip-path: inset(50%);
+        }
+
+        body {
+            min-width: 320px;
+            min-height: 100vh;
+            margin: 0;
+            padding: 48px 20px;
+            background:
+                radial-gradient(ellipse at 10% 0%, rgba(196, 224, 194, 0.42), transparent 34rem),
+                #f3f6f1;
+        }
+
+        button,
+        input {
+            font: inherit;
+        }
+
+        button {
+            min-height: 44px;
+            border: 0;
+            border-radius: 12px;
+            padding: 10px 16px;
+            font-weight: 650;
+            cursor: pointer;
+            transition: background-color 140ms ease, transform 140ms ease;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        button:focus-visible,
+        input:focus-visible {
+            outline: 3px solid #78a88a;
+            outline-offset: 3px;
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.48;
+        }
+
+        .app-container {
+            width: min(100%, 520px);
+            margin: 0 auto;
+            padding: clamp(24px, 6vw, 40px);
+            border: 1px solid rgba(35, 51, 45, 0.07);
+            border-radius: 24px;
+            background: #fff;
+            box-shadow: 0 18px 55px rgba(37, 60, 45, 0.09);
+        }
+
+        .eyebrow {
+            margin: 0 0 8px;
+            color: #588064;
+            font-size: 0.76rem;
+            font-weight: 750;
+            letter-spacing: 0.12em;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0;
+            color: #23332d;
+            font-size: clamp(1.9rem, 7vw, 2.45rem);
+            letter-spacing: -0.045em;
+            text-align: center;
+        }
+
+        .subtitle {
+            margin: 10px 0 28px;
+            color: #718078;
+            font-size: 0.98rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .input-group input,
+        .edit-input {
+            width: 100%;
+            min-width: 0;
+            min-height: 48px;
+            border: 1px solid #dce5dd;
+            border-radius: 12px;
+            padding: 11px 14px;
+            background: #fbfcfa;
+            color: #23332d;
+            font-size: 1rem;
+        }
+
+        .input-group input::placeholder {
+            color: #89968e;
+        }
+
+        .add-button {
+            flex: 0 0 auto;
+            background: #286744;
+            color: #fff;
+        }
+
+        .add-button:hover:not(:disabled) {
+            background: #205738;
+        }
+
+        .scan-button {
+            width: 100%;
+            margin-bottom: 10px;
+            background: #356b83;
+            color: #fff;
+        }
+
+        .scan-button:hover:not(:disabled) {
+            background: #28566b;
+        }
+
+        .scan-button.is-active {
+            background: #65756b;
+        }
+
+        .scanner-help,
+        .scanner-status {
+            margin: 0 0 12px;
+            color: #718078;
+            font-size: 0.88rem;
+            line-height: 1.45;
+        }
+
+        #reader {
+            display: none;
+            width: 100%;
+            margin: 0 0 12px;
+            overflow: hidden;
+            border-radius: 12px;
+            background: #f3f6f1;
+        }
+
+        #reader video {
+            max-width: 100%;
+            border-radius: 12px;
+        }
+
+        .list-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .list-heading h2 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .clear-button {
+            min-height: 40px;
+            padding: 8px 10px;
+            background: transparent;
+            color: #65756b;
+            font-size: 0.85rem;
+        }
+
+        .clear-button:hover:not(:disabled) {
+            background: #f1f5f0;
+            color: #286744;
+        }
+
+        .list-count {
+            margin: 0 0 12px;
+            color: #718078;
+            font-size: 0.88rem;
+        }
+
+        ul {
+            display: grid;
+            gap: 8px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 58px;
+            padding: 8px 8px 8px 14px;
+            border: 1px solid #edf1ed;
+            border-radius: 14px;
+            background: #fff;
+        }
+
+        .item-checkbox {
+            width: 20px;
+            height: 20px;
+            flex: 0 0 auto;
+            margin: 0;
+            accent-color: #286744;
+            cursor: pointer;
+        }
+
+        .item-name {
+            flex: 1;
+            min-width: 0;
+            overflow-wrap: anywhere;
+            font-size: 1rem;
+        }
+
+        .list-item.is-completed .item-name {
+            color: #89968e;
+            text-decoration: line-through;
+            text-decoration-thickness: 1px;
+        }
+
+        .item-actions,
+        .edit-actions {
+            display: flex;
+            flex: 0 0 auto;
+            gap: 4px;
+        }
+
+        .icon-button {
+            min-width: 40px;
+            min-height: 40px;
+            padding: 8px;
+            background: transparent;
+            color: #65756b;
+            font-size: 0.9rem;
+        }
+
+        .icon-button:hover:not(:disabled) {
+            background: #f1f5f0;
+            color: #23332d;
+        }
+
+        .delete-button:hover:not(:disabled) {
+            background: #fff0ed;
+            color: #a63e2e;
+        }
+
+        .edit-form {
+            display: flex;
+            flex: 1;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .edit-input {
+            min-height: 42px;
+            padding: 8px 10px;
+        }
+
+        .save-button {
+            background: #286744;
+            color: #fff;
+        }
+
+        .cancel-button {
+            background: #f1f5f0;
+            color: #3d5145;
+        }
+
+        .empty-state {
+            padding: 28px 16px;
+            border: 1px dashed #dce5dd;
+            border-radius: 14px;
+            color: #718078;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        .message {
+            min-height: 1.4em;
+            margin: 14px 0 0;
+            color: #65756b;
+            font-size: 0.88rem;
+            line-height: 1.4;
+        }
+
+        .message:empty {
+            display: none;
+        }
+
+        .message.error {
+            color: #a63e2e;
+        }
+
+        @media (max-width: 420px) {
+            body {
+                padding: 20px 12px;
+            }
+
+            .app-container {
+                border-radius: 20px;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            .add-button {
+                width: 100%;
+            }
+
+            .list-item {
+                gap: 9px;
+                padding-left: 10px;
+            }
+
+            .icon-button {
+                min-width: 36px;
+                padding: 6px;
+            }
+
+            .edit-form {
+                flex-wrap: wrap;
+            }
+
+            .edit-actions {
+                margin-left: auto;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="app-container">
+        <p class="eyebrow">Planlegg enkelt</p>
+        <h1>🛒 Handleliste</h1>
+        <p class="subtitle">Alt du trenger, samlet på ett sted.</p>
+
+        <button class="scan-button" id="toggleScanner" type="button" aria-expanded="false" aria-controls="reader">
+            📷 Scan strekkode
+        </button>
+        <p class="scanner-help">Skann en matvare for å søke etter den i Open Food Facts.</p>
+        <div id="reader" role="region" aria-label="Kameravisning" aria-hidden="true"></div>
+        <p class="scanner-status" id="scannerStatus" role="status" aria-live="polite"></p>
+
+        <form class="input-group" id="addForm">
+            <label for="vareInput" class="visually-hidden">Ny vare</label>
+            <input
+                type="text"
+                id="vareInput"
+                placeholder="Hva trenger du?"
+                autocomplete="off"
+                maxlength="120"
+                required
+            >
+            <button class="add-button" type="submit">Legg til</button>
+        </form>
+
+        <section aria-labelledby="listTitle">
+            <div class="list-heading">
+                <h2 id="listTitle">Varene dine</h2>
+                <button class="clear-button" id="clearCompleted" type="button" disabled>
+                    Fjern avkryssede
+                </button>
+            </div>
+            <p class="list-count" id="listCount" aria-live="polite"></p>
+            <ul id="handleliste" aria-label="Handleliste"></ul>
+        </section>
+
+        <p class="message" id="message" role="status" aria-live="polite"></p>
+        <p class="message error" id="errorMessage" role="alert"></p>
+    </main>
+
+    <script>
+        const storageKey = "handleliste-v1";
+        const inputFelt = document.getElementById("vareInput");
+        const addForm = document.getElementById("addForm");
+        const scanButton = document.getElementById("toggleScanner");
+        const readerDiv = document.getElementById("reader");
+        const scannerStatus = document.getElementById("scannerStatus");
+        const liste = document.getElementById("handleliste");
+        const listCount = document.getElementById("listCount");
+        const clearButton = document.getElementById("clearCompleted");
+        const message = document.getElementById("message");
+        const errorMessage = document.getElementById("errorMessage");
+        let varer = loadItems();
+        let editingId = null;
+        let scanner = null;
+        let scannerState = "idle";
+        let scanHandled = false;
+        let scannerLibraryPromise = null;
+
+        function loadItems() {
+            try {
+                const saved = localStorage.getItem(storageKey);
+                if (!saved) return [];
+
+                const parsed = JSON.parse(saved);
+                if (!Array.isArray(parsed) || !parsed.every((item) =>
+                    item &&
+                    typeof item.id === "string" &&
+                    typeof item.name === "string" &&
+                    typeof item.completed === "boolean"
+                )) {
+                    throw new Error("Ugyldig format");
+                }
+                return parsed;
+            } catch (error) {
+                showError("Handlelisten kunne ikke leses fra nettleseren. Den vises tom inntil du legger til en vare.");
+                return [];
+            }
+        }
+
+        function saveItems() {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(varer));
+                errorMessage.textContent = "";
+                return true;
+            } catch (error) {
+                showError("Endringene kunne ikke lagres. Kontroller lagringsplassen i nettleseren.");
+                return false;
+            }
+        }
+
+        function showError(text) {
+            errorMessage.textContent = text;
+        }
+
+        function announce(text) {
+            message.textContent = text;
+        }
+
+        function setScannerVisibility(visible) {
+            readerDiv.style.display = visible ? "block" : "none";
+            readerDiv.setAttribute("aria-hidden", String(!visible));
+            scanButton.setAttribute("aria-expanded", String(visible));
+            scanButton.classList.toggle("is-active", visible);
+        }
+
+        function loadScannerLibrary() {
+            if (typeof window.Html5Qrcode === "function") {
+                return Promise.resolve();
+            }
+            if (scannerLibraryPromise) return scannerLibraryPromise;
+
+            scannerLibraryPromise = new Promise((resolve, reject) => {
+                const script = document.createElement("script");
+                script.src = "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js";
+                script.async = true;
+                script.onload = () => {
+                    if (typeof window.Html5Qrcode === "function") {
+                        resolve();
+                    } else {
+                        reject(new Error("Strekkodeskanneren ble ikke lastet inn."));
+                    }
+                };
+                script.onerror = () => reject(new Error("Kunne ikke laste inn strekkodeskanneren."));
+                document.head.appendChild(script);
+            }).catch((error) => {
+                scannerLibraryPromise = null;
+                throw error;
+            });
+
+            return scannerLibraryPromise;
+        }
+
+        async function toggleScanner() {
+            if (scannerState === "scanning") {
+                await stopScanner();
+            } else if (scannerState === "idle") {
+                await startScanner();
+            }
+        }
+
+        async function startScanner() {
+            if (!window.isSecureContext) {
+                showError("Kamera krever en sikker tilkobling. Åpne appen via HTTPS eller localhost.");
+                return;
+            }
+
+            scannerState = "starting";
+            scanHandled = false;
+            scanButton.disabled = true;
+            scanButton.textContent = "Klargjør kamera …";
+            scannerStatus.textContent = "Klargjør strekkodeskanneren …";
+            errorMessage.textContent = "";
+            setScannerVisibility(true);
+
+            try {
+                await loadScannerLibrary();
+                scanner = new window.Html5Qrcode("reader");
+                const supportedFormats = window.Html5QrcodeSupportedFormats;
+                const formatsToSupport = supportedFormats
+                    ? [
+                        supportedFormats.EAN_13,
+                        supportedFormats.EAN_8,
+                        supportedFormats.UPC_A,
+                        supportedFormats.UPC_E,
+                        supportedFormats.UPC_EAN_EXTENSION
+                    ].filter((format) => format !== undefined)
+                    : undefined;
+                const boxWidth = Math.min(250, readerDiv.clientWidth || 250);
+                const configuration = {
+                    fps: 10,
+                    qrbox: { width: boxWidth, height: Math.min(150, boxWidth) }
+                };
+                if (formatsToSupport) configuration.formatsToSupport = formatsToSupport;
+
+                await scanner.start(
+                    { facingMode: "environment" },
+                    configuration,
+                    (barcode) => {
+                        if (scannerState !== "scanning" || scanHandled) return;
+                        scanHandled = true;
+                        handleScannedBarcode(barcode);
+                    },
+                    () => {}
+                );
+
+                scannerState = "scanning";
+                scanButton.disabled = false;
+                scanButton.textContent = "Lukk kamera";
+                scannerStatus.textContent = "Hold strekkoden foran kameraet.";
+            } catch (error) {
+                const scannerError = error;
+                if (scanner) {
+                    try {
+                        await scanner.clear();
+                    } catch (cleanupError) {
+                        console.error("Kunne ikke rydde kameravisningen:", cleanupError);
+                    }
+                    scanner = null;
+                }
+                scannerState = "idle";
+                scanButton.disabled = false;
+                scanButton.textContent = "📷 Scan strekkode";
+                scannerStatus.textContent = "";
+                setScannerVisibility(false);
+                showError(`Kunne ikke starte kameraet. Kontroller kameratilgang og at siden bruker HTTPS. ${scannerError.message || ""}`.trim());
+            }
+        }
+
+        async function stopScanner() {
+            if (!scanner) {
+                scannerState = "idle";
+                scanButton.disabled = false;
+                scanButton.textContent = "📷 Scan strekkode";
+                setScannerVisibility(false);
+                return true;
+            }
+
+            scannerState = "stopping";
+            scanButton.disabled = true;
+            try {
+                await scanner.stop();
+            } catch (error) {
+                scannerState = "scanning";
+                scanButton.disabled = false;
+                scanButton.textContent = "Lukk kamera";
+                showError(`Kunne ikke stoppe kameraet. Prøv å lukke det igjen. ${error.message || ""}`.trim());
+                return false;
+            }
+
+            try {
+                await scanner.clear();
+            } catch (error) {
+                console.error("Kunne ikke rydde kameravisningen:", error);
+            }
+
+            scanner = null;
+            scannerState = "idle";
+            scanButton.disabled = false;
+            scanButton.textContent = "📷 Scan strekkode";
+            scannerStatus.textContent = "";
+            setScannerVisibility(false);
+            return true;
+        }
+
+        async function handleScannedBarcode(barcode) {
+            if (!await stopScanner()) return;
+
+            scannerStatus.textContent = "Søker etter varen hos Open Food Facts …";
+            errorMessage.textContent = "";
+            try {
+                const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=product_name,product_name_no,product_name_en`;
+                const response = await fetch(url, { headers: { Accept: "application/json" } });
+                if (!response.ok) throw new Error(`Tjenesten svarte med status ${response.status}.`);
+                const result = await response.json();
+                const product = result.product;
+                const productName = product && [
+                    product.product_name_no,
+                    product.product_name,
+                    product.product_name_en
+                ].find((name) => typeof name === "string" && name.trim());
+
+                if (result.status !== 1 || !productName) {
+                    inputFelt.value = barcode;
+                    scannerStatus.textContent = "Fant ikke varen. Strekkoden er fylt inn, så du kan legge til varen manuelt.";
+                    inputFelt.focus();
+                    return;
+                }
+
+                addItem(productName.trim());
+                scannerStatus.textContent = `Fant «${productName.trim()}» og la den til i listen.`;
+            } catch (error) {
+                inputFelt.value = barcode;
+                scannerStatus.textContent = "";
+                showError(`Kunne ikke søke opp varen. Strekkoden er fylt inn, så du kan legge den til manuelt. ${error.message || ""}`.trim());
+                inputFelt.focus();
+            }
+        }
+
+        function renderList() {
+            liste.replaceChildren();
+
+            if (varer.length === 0) {
+                const emptyState = document.createElement("li");
+                emptyState.className = "empty-state";
+                emptyState.textContent = "Handlelisten er tom. Legg til den første varen din!";
+                liste.appendChild(emptyState);
+            }
+
+            varer.forEach((vare) => {
+                const item = document.createElement("li");
+                item.className = "list-item";
+                if (vare.completed) item.classList.add("is-completed");
+
+                if (editingId === vare.id) {
+                    renderEditForm(item, vare);
+                } else {
+                    renderListItem(item, vare);
+                }
+
+                liste.appendChild(item);
+            });
+
+            const completedCount = varer.filter((vare) => vare.completed).length;
+            const remainingCount = varer.length - completedCount;
+            listCount.textContent = varer.length === 0
+                ? "Ingen varer lagt til ennå"
+                : `${remainingCount} ${remainingCount === 1 ? "vare" : "varer"} igjen`;
+            clearButton.disabled = completedCount === 0;
+        }
+
+        function renderListItem(item, vare) {
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "item-checkbox";
+            checkbox.checked = vare.completed;
+            checkbox.setAttribute("aria-label", `Marker ${vare.name} som ${vare.completed ? "ikke kjøpt" : "kjøpt"}`);
+            checkbox.addEventListener("change", () => {
+                vare.completed = checkbox.checked;
+                saveItems();
+                renderList();
+            });
+
+            const name = document.createElement("span");
+            name.className = "item-name";
+            name.textContent = vare.name;
+
+            const actions = document.createElement("div");
+            actions.className = "item-actions";
+
+            const editButton = document.createElement("button");
+            editButton.type = "button";
+            editButton.className = "icon-button";
+            editButton.textContent = "Rediger";
+            editButton.setAttribute("aria-label", `Rediger ${vare.name}`);
+            editButton.addEventListener("click", () => {
+                editingId = vare.id;
+                renderList();
+                const editInput = liste.querySelector(".edit-input");
+                editInput.focus();
+                editInput.select();
+            });
+
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.className = "icon-button delete-button";
+            deleteButton.textContent = "Slett";
+            deleteButton.setAttribute("aria-label", `Slett ${vare.name}`);
+            deleteButton.addEventListener("click", () => {
+                varer = varer.filter((item) => item.id !== vare.id);
+                saveItems();
+                announce(`${vare.name} er slettet.`);
+                renderList();
+            });
+
+            actions.append(editButton, deleteButton);
+            item.append(checkbox, name, actions);
+        }
+
+        function renderEditForm(item, vare) {
+            const form = document.createElement("form");
+            form.className = "edit-form";
+
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "edit-input";
+            input.value = vare.name;
+            input.maxLength = 120;
+            input.required = true;
+            input.setAttribute("aria-label", `Nytt navn for ${vare.name}`);
+
+            const actions = document.createElement("div");
+            actions.className = "edit-actions";
+
+            const saveButton = document.createElement("button");
+            saveButton.type = "submit";
+            saveButton.className = "icon-button save-button";
+            saveButton.textContent = "Lagre";
+
+            const cancelButton = document.createElement("button");
+            cancelButton.type = "button";
+            cancelButton.className = "icon-button cancel-button";
+            cancelButton.textContent = "Avbryt";
+            cancelButton.addEventListener("click", () => {
+                editingId = null;
+                renderList();
+            });
+
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+                const newName = input.value.trim();
+                if (!newName) {
+                    input.setCustomValidity("Skriv inn et varenavn.");
+                    input.reportValidity();
+                    return;
+                }
+                vare.name = newName;
+                editingId = null;
+                saveItems();
+                announce("Varen er oppdatert.");
+                renderList();
+            });
+
+            input.addEventListener("input", () => input.setCustomValidity(""));
+            actions.append(saveButton, cancelButton);
+            form.append(input, actions);
+            item.appendChild(form);
+        }
+
+        function addItem(name) {
+            varer.push({
+                id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+                name,
+                completed: false
+            });
+            saveItems();
+            announce(`${name} er lagt til.`);
+            inputFelt.value = "";
+            renderList();
+        }
+
+        scanButton.addEventListener("click", toggleScanner);
+
+        addForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            const name = inputFelt.value.trim();
+            if (!name) {
+                inputFelt.focus();
+                return;
+            }
+            addItem(name);
+            inputFelt.focus();
+        });
+
+        clearButton.addEventListener("click", () => {
+            const removedCount = varer.filter((vare) => vare.completed).length;
+            varer = varer.filter((vare) => !vare.completed);
+            saveItems();
+            announce(`${removedCount} ${removedCount === 1 ? "vare er" : "varer er"} fjernet.`);
+            renderList();
+        });
+
+        renderList();
+    </script>
+</body>
+</html>
