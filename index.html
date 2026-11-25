@@ -597,12 +597,69 @@
         }
 
         function getSafeImageUrl(value) {
-            if (typeof value !== "string" || !value) return null;
+            if (typeof value !== "string" || !value || value.length > 2048) return null;
             try {
                 const url = new URL(value);
                 return url.protocol === "https:" ? url.href : null;
             } catch (error) {
                 return null;
+            }
+        }
+
+        function getProductImageUrl(product) {
+            if (!product) return null;
+            const candidates = [
+                product.image_front_small_url,
+                product.image_front_url,
+                product.image_url,
+                product.selected_images?.front?.small?.no,
+                product.selected_images?.front?.small?.en
+            ];
+            return candidates.map(getSafeImageUrl).find(Boolean) || null;
+        }
+
+        async function findImageForManualItem(item) {
+            const itemName = item.name;
+            scannerStatus.textContent = `Søker etter produktbilde for «${itemName}» …`;
+
+            try {
+                const params = new URLSearchParams({
+                    search_terms: itemName,
+                    fields: "product_name,image_front_small_url,image_front_url,image_url,selected_images",
+                    page_size: "5"
+                });
+                const response = await fetch(`https://world.openfoodfacts.org/api/v2/search?${params}`, {
+                    headers: { Accept: "application/json" }
+                });
+                if (!response.ok) throw new Error(`Tjenesten svarte med status ${response.status}.`);
+                const result = await response.json();
+                const products = Array.isArray(result.products) ? result.products : [];
+                const productsWithImages = products
+                    .map((product) => ({ product, imageUrl: getProductImageUrl(product) }))
+                    .filter((match) => match.imageUrl);
+                const normalizedName = itemName.trim().toLocaleLowerCase("no");
+                const match = productsWithImages.find(({ product }) =>
+                    typeof product.product_name === "string" &&
+                    product.product_name.toLocaleLowerCase("no").includes(normalizedName)
+                ) || productsWithImages[0];
+
+                const currentItem = varer.find((vare) => vare.id === item.id);
+                if (!currentItem || currentItem.name !== itemName) return;
+                if (!match) {
+                    scannerStatus.textContent = `Fant ikke et produktbilde for «${itemName}».`;
+                    return;
+                }
+
+                if (currentItem.imageUrl) return;
+                currentItem.imageUrl = match.imageUrl;
+                await saveItemToCloud(currentItem);
+                renderList();
+                scannerStatus.textContent = `Fant et produktbilde for «${itemName}».`;
+            } catch (error) {
+                if (varer.some((vare) => vare.id === item.id)) {
+                    scannerStatus.textContent = "";
+                    showError(`Kunne ikke søke etter et produktbilde for «${itemName}». Varen er fortsatt lagt til. ${error.message || ""}`.trim());
+                }
             }
         }
 
@@ -827,7 +884,7 @@
             scannerStatus.textContent = "Søker etter varen hos Open Food Facts …";
             errorMessage.textContent = "";
             try {
-                const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=product_name,product_name_no,product_name_en,image_front_small_url,image_url`;
+                const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=product_name,product_name_no,product_name_en,image_front_small_url,image_front_url,image_url,selected_images`;
                 const response = await fetch(url, { headers: { Accept: "application/json" } });
                 if (!response.ok) throw new Error(`Tjenesten svarte med status ${response.status}.`);
                 const result = await response.json();
@@ -837,10 +894,7 @@
                     product.product_name,
                     product.product_name_en
                 ].find((name) => typeof name === "string" && name.trim());
-                const imageUrl = product && (
-                    getSafeImageUrl(product.image_front_small_url) ||
-                    getSafeImageUrl(product.image_url)
-                );
+                const imageUrl = getProductImageUrl(product);
 
                 if (result.status !== 1 || !productName) {
                     inputFelt.value = barcode;
@@ -1013,17 +1067,19 @@
 
         function addItem(name, imageUrl = null) {
             const safeImageUrl = getSafeImageUrl(imageUrl);
-            varer.push({
+            const item = {
                 id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
                 name,
                 completed: false,
-                createdAt: Date.now(),
-                ...(safeImageUrl ? { imageUrl: safeImageUrl } : {})
-            });
-            saveItemToCloud(varer[varer.length - 1]);
+                createdAt: Date.now()
+            };
+            if (safeImageUrl) item.imageUrl = safeImageUrl;
+            varer.push(item);
+            saveItemToCloud(item);
             announce(`${name} er lagt til.`);
             inputFelt.value = "";
             renderList();
+            return item;
         }
 
         scanButton.addEventListener("click", toggleScanner);
@@ -1044,7 +1100,8 @@
                 inputFelt.focus();
                 return;
             }
-            addItem(name);
+            const item = addItem(name);
+            findImageForManualItem(item);
             inputFelt.focus();
         });
 
