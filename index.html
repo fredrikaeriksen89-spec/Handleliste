@@ -262,6 +262,15 @@
             cursor: pointer;
         }
 
+        .product-thumbnail {
+            width: 40px;
+            height: 40px;
+            flex: 0 0 40px;
+            border-radius: 9px;
+            background: #f3f6f1;
+            object-fit: cover;
+        }
+
         .item-name {
             flex: 1;
             min-width: 0;
@@ -557,15 +566,32 @@
             if (!itemsCollection) return;
 
             try {
-                await itemsCollection.doc(item.id).set({
-                    name: item.name,
-                    completed: item.completed,
-                    createdAt: item.createdAt
-                });
+                await itemsCollection.doc(item.id).set(getFirestoreItemData(item));
                 if (cacheSaved) errorMessage.textContent = "";
             } catch (error) {
                 syncStatus.textContent = "Endringen er ikke synkronisert.";
                 showError(`Endringen er lagret lokalt, men kunne ikke synkroniseres. ${error.message || ""}`.trim());
+            }
+        }
+
+        function getFirestoreItemData(item) {
+            const data = {
+                name: item.name,
+                completed: item.completed,
+                createdAt: item.createdAt
+            };
+            const imageUrl = getSafeImageUrl(item.imageUrl);
+            if (imageUrl) data.imageUrl = imageUrl;
+            return data;
+        }
+
+        function getSafeImageUrl(value) {
+            if (typeof value !== "string" || !value) return null;
+            try {
+                const url = new URL(value);
+                return url.protocol === "https:" ? url.href : null;
+            } catch (error) {
+                return null;
             }
         }
 
@@ -602,11 +628,7 @@
                     if (needsLegacyMigration && snapshot.empty && varer.length > 0) {
                         try {
                             await Promise.all(varer.map((item) =>
-                                itemsCollection.doc(item.id).set({
-                                    name: item.name,
-                                    completed: item.completed,
-                                    createdAt: item.createdAt
-                                })
+                                itemsCollection.doc(item.id).set(getFirestoreItemData(item))
                             ));
                             needsLegacyMigration = false;
                             localStorage.removeItem(legacyStorageKey);
@@ -794,7 +816,7 @@
             scannerStatus.textContent = "Søker etter varen hos Open Food Facts …";
             errorMessage.textContent = "";
             try {
-                const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=product_name,product_name_no,product_name_en`;
+                const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=product_name,product_name_no,product_name_en,image_front_small_url,image_url`;
                 const response = await fetch(url, { headers: { Accept: "application/json" } });
                 if (!response.ok) throw new Error(`Tjenesten svarte med status ${response.status}.`);
                 const result = await response.json();
@@ -804,6 +826,10 @@
                     product.product_name,
                     product.product_name_en
                 ].find((name) => typeof name === "string" && name.trim());
+                const imageUrl = product && (
+                    getSafeImageUrl(product.image_front_small_url) ||
+                    getSafeImageUrl(product.image_url)
+                );
 
                 if (result.status !== 1 || !productName) {
                     inputFelt.value = barcode;
@@ -812,7 +838,7 @@
                     return;
                 }
 
-                addItem(productName.trim());
+                addItem(productName.trim(), imageUrl);
                 scannerStatus.textContent = `Fant «${productName.trim()}» og la den til i listen.`;
             } catch (error) {
                 inputFelt.value = barcode;
@@ -860,6 +886,7 @@
             checkbox.className = "item-checkbox";
             checkbox.checked = vare.completed;
             checkbox.setAttribute("aria-label", `Marker ${vare.name} som ${vare.completed ? "ikke kjøpt" : "kjøpt"}`);
+            item.appendChild(checkbox);
             checkbox.addEventListener("change", () => {
                 vare.completed = checkbox.checked;
                 saveItemToCloud(vare);
@@ -869,6 +896,17 @@
             const name = document.createElement("span");
             name.className = "item-name";
             name.textContent = vare.name;
+
+            const imageUrl = getSafeImageUrl(vare.imageUrl);
+            if (imageUrl) {
+                const image = document.createElement("img");
+                image.className = "product-thumbnail";
+                image.src = imageUrl;
+                image.alt = "";
+                image.loading = "lazy";
+                image.addEventListener("error", () => image.remove(), { once: true });
+                item.appendChild(image);
+            }
 
             const actions = document.createElement("div");
             actions.className = "item-actions";
@@ -899,7 +937,7 @@
             });
 
             actions.append(editButton, deleteButton);
-            item.append(checkbox, name, actions);
+            item.append(name, actions);
         }
 
         function renderEditForm(item, vare) {
@@ -952,12 +990,14 @@
             item.appendChild(form);
         }
 
-        function addItem(name) {
+        function addItem(name, imageUrl = null) {
+            const safeImageUrl = getSafeImageUrl(imageUrl);
             varer.push({
                 id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
                 name,
                 completed: false,
-                createdAt: Date.now()
+                createdAt: Date.now(),
+                ...(safeImageUrl ? { imageUrl: safeImageUrl } : {})
             });
             saveItemToCloud(varer[varer.length - 1]);
             announce(`${name} er lagt til.`);
