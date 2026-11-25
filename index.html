@@ -125,8 +125,49 @@
             font-size: 1rem;
         }
 
+        #vareInput {
+            flex: 1;
+        }
+
         .input-group input::placeholder {
             color: #89968e;
+        }
+
+        .quantity-field {
+            display: flex;
+            flex: 0 0 88px;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+            min-height: 48px;
+            border: 1px solid #dce5dd;
+            border-radius: 12px;
+            padding: 0 10px;
+            background: #fbfcfa;
+            color: #718078;
+            font-size: 0.88rem;
+        }
+
+        .quantity-field input {
+            width: 100%;
+            min-height: 42px;
+            border: 0;
+            padding: 4px 0;
+            background: transparent;
+            color: #23332d;
+            text-align: center;
+        }
+
+        .category-select {
+            flex: 0 1 176px;
+            min-width: 144px;
+            min-height: 48px;
+            border: 1px solid #dce5dd;
+            border-radius: 12px;
+            padding: 10px;
+            background: #fbfcfa;
+            color: #23332d;
+            font: inherit;
         }
 
         .add-button {
@@ -242,6 +283,22 @@
             list-style: none;
         }
 
+        .category-group {
+            display: grid;
+            gap: 8px;
+        }
+
+        .category-title {
+            margin: 8px 2px 0;
+            color: #588064;
+            font-size: 0.92rem;
+            font-weight: 750;
+        }
+
+        .category-items {
+            gap: 8px;
+        }
+
         .list-item {
             display: flex;
             align-items: center;
@@ -287,6 +344,47 @@
             min-width: 0;
             overflow-wrap: anywhere;
             font-size: 1rem;
+        }
+
+        .item-detail {
+            display: flex;
+            flex: 1;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .quantity-control {
+            display: flex;
+            flex: 0 0 auto;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .quantity-button {
+            width: 36px;
+            min-width: 36px;
+            min-height: 36px;
+            padding: 4px;
+            border-radius: 9px;
+            background: #f1f5f0;
+            color: #286744;
+            font-size: 1.15rem;
+            line-height: 1;
+        }
+
+        .quantity-button:hover:not(:disabled) {
+            background: #e2ece4;
+        }
+
+        .quantity-value {
+            min-width: 46px;
+            color: #526258;
+            font-size: 0.82rem;
+            font-weight: 650;
+            text-align: center;
+            white-space: nowrap;
         }
 
         .list-item.is-completed .item-name {
@@ -369,7 +467,7 @@
             color: #a63e2e;
         }
 
-        @media (max-width: 420px) {
+        @media (max-width: 480px) {
             body {
                 padding: 20px 12px;
             }
@@ -382,13 +480,31 @@
                 flex-direction: column;
             }
 
+            .quantity-field,
+            .category-select {
+                width: 100%;
+                flex: 0 0 auto;
+            }
+
             .add-button {
                 width: 100%;
             }
 
             .list-item {
+                flex-wrap: wrap;
                 gap: 9px;
                 padding-left: 10px;
+            }
+
+            .item-detail {
+                display: grid;
+                justify-content: stretch;
+                gap: 5px;
+            }
+
+            .item-actions {
+                flex: 0 0 100%;
+                justify-content: flex-end;
             }
 
             .icon-button {
@@ -440,6 +556,23 @@
                 maxlength="120"
                 required
             >
+            <div class="quantity-field">
+                <label for="quantityInput" class="visually-hidden">Antall</label>
+                <input type="number" id="quantityInput" value="1" min="1" step="1" inputmode="numeric" required>
+                <span aria-hidden="true">stk</span>
+            </div>
+            <label for="categoryInput" class="visually-hidden">Kategori</label>
+            <select class="category-select" id="categoryInput">
+                <option value="auto">Automatisk: Annet</option>
+                <option value="Frukt & grønt">Frukt &amp; grønt</option>
+                <option value="Meieri & egg">Meieri &amp; egg</option>
+                <option value="Kjøtt & fisk">Kjøtt &amp; fisk</option>
+                <option value="Bakervarer">Bakervarer</option>
+                <option value="Tørrvarer">Tørrvarer</option>
+                <option value="Frysevarer">Frysevarer</option>
+                <option value="Drikke">Drikke</option>
+                <option value="Annet">Annet</option>
+            </select>
             <button class="add-button" type="submit">Legg til</button>
         </form>
 
@@ -464,6 +597,16 @@
 
     <script>
         const legacyStorageKey = "handleliste-v1";
+        const ITEM_CATEGORIES = [
+            "Frukt & grønt",
+            "Meieri & egg",
+            "Kjøtt & fisk",
+            "Bakervarer",
+            "Tørrvarer",
+            "Frysevarer",
+            "Drikke",
+            "Annet"
+        ];
         const listIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const currentUrl = new URL(window.location.href);
         const requestedListId = currentUrl.searchParams.get("list");
@@ -479,6 +622,9 @@
         }
         const storageKey = `${legacyStorageKey}-${listId}`;
         const inputFelt = document.getElementById("vareInput");
+        const quantityInput = document.getElementById("quantityInput");
+        const categoryInput = document.getElementById("categoryInput");
+        const autoCategoryOption = categoryInput.querySelector('option[value="auto"]');
         const addForm = document.getElementById("addForm");
         const scanButton = document.getElementById("toggleScanner");
         const shareButton = document.getElementById("shareList");
@@ -534,6 +680,34 @@
             });
         }
 
+        function guessCategory(itemName) {
+            const name = String(itemName || "")
+                .toLocaleLowerCase("no")
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9æøå]+/g, " ")
+                .trim();
+            const matches = (terms) => terms.some((term) => (` ${name} `).includes(` ${term} `));
+
+            if (matches(["frossen", "frosne", "fryst", "iskrem", "is"])) return "Frysevarer";
+            if (matches(["eple", "epler", "banan", "bananer", "appelsin", "pære", "drue", "jordbær", "blåbær", "bringebær", "sitron", "lime", "mango", "avokado", "tomat", "agurk", "salat", "gulrot", "potet", "løk", "paprika", "brokkoli", "blomkål", "spinat"])) return "Frukt & grønt";
+            if (matches(["melk", "ost", "yoghurt", "egg", "smør", "rømme", "fløte", "krem", "kesam", "skyr", "cottage cheese", "creme fraiche"])) return "Meieri & egg";
+            if (matches(["kjøtt", "kjott", "kylling", "svin", "biff", "bacon", "pølse", "polse", "skinke", "laks", "torsk", "fisk", "reker", "ørret", "orret", "sei", "kjøttdeig", "kjottdeig", "karbonadedeig"])) return "Kjøtt & fisk";
+            if (matches(["brød", "brod", "kneipp", "loff", "baguette", "rundstykke", "bolle", "bakverk", "kake", "lefse"])) return "Bakervarer";
+            if (matches(["vann", "brus", "juice", "saft", "øl", "ol", "vin", "mineralvann", "energidrikk"])) return "Drikke";
+            if (matches(["pasta", "ris", "mel", "sukker", "salt", "havre", "gryn", "bønner", "bonner", "linser", "hermetikk", "olje", "krydder", "kaffe", "te", "nøtter", "notter", "sjokolade", "chips", "kjeks"])) return "Tørrvarer";
+            return "Annet";
+        }
+
+        function updateAutoCategoryOption() {
+            autoCategoryOption.textContent = `Automatisk: ${guessCategory(inputFelt.value)}`;
+        }
+
+        function getQuantityInputValue() {
+            const quantity = Number(quantityInput.value);
+            return Number.isSafeInteger(quantity) && quantity >= 1 ? quantity : null;
+        }
+
         function loadItems() {
             try {
                 let saved = localStorage.getItem(storageKey);
@@ -552,10 +726,7 @@
                 )) {
                     throw new Error("Ugyldig format");
                 }
-                return parsed.map((item) => ({
-                    ...item,
-                    createdAt: Number.isFinite(item.createdAt) ? item.createdAt : Date.now()
-                }));
+                return parsed.map(normalizeItem);
             } catch (error) {
                 showError("Handlelisten kunne ikke leses fra nettleseren. Den vises tom inntil du legger til en vare.");
                 return [];
@@ -589,11 +760,22 @@
             const data = {
                 name: item.name,
                 completed: item.completed,
-                createdAt: item.createdAt
+                createdAt: item.createdAt,
+                quantity: item.quantity,
+                category: item.category
             };
             const imageUrl = getSafeImageUrl(item.imageUrl);
             if (imageUrl) data.imageUrl = imageUrl;
             return data;
+        }
+
+        function normalizeItem(item) {
+            return {
+                ...item,
+                createdAt: Number.isFinite(item.createdAt) ? item.createdAt : Date.now(),
+                quantity: Number.isSafeInteger(item.quantity) && item.quantity >= 1 ? item.quantity : 1,
+                category: ITEM_CATEGORIES.includes(item.category) ? item.category : guessCategory(item.name)
+            };
         }
 
         function getSafeImageUrl(value) {
@@ -710,7 +892,7 @@
 
                     needsLegacyMigration = false;
                     varer = snapshot.docs
-                        .map((item) => ({ id: item.id, ...item.data() }))
+                        .map((item) => normalizeItem({ id: item.id, ...item.data() }))
                         .sort((first, second) => first.createdAt - second.createdAt);
                     if (saveItems()) errorMessage.textContent = "";
                     renderList();
@@ -903,7 +1085,18 @@
                     return;
                 }
 
-                addItem(productName.trim(), imageUrl);
+                const quantity = getQuantityInputValue();
+                if (quantity === null) {
+                    inputFelt.value = productName.trim();
+                    quantityInput.setCustomValidity("Antall må være et helt tall på minst 1.");
+                    quantityInput.reportValidity();
+                    return;
+                }
+                quantityInput.setCustomValidity("");
+                const category = categoryInput.value === "auto"
+                    ? guessCategory(productName.trim())
+                    : categoryInput.value;
+                addItem(productName.trim(), imageUrl, quantity, category);
                 scannerStatus.textContent = `Fant «${productName.trim()}» og la den til i listen.`;
             } catch (error) {
                 inputFelt.value = barcode;
@@ -921,21 +1114,42 @@
                 emptyState.className = "empty-state";
                 emptyState.textContent = "Handlelisten er tom. Legg til den første varen din!";
                 liste.appendChild(emptyState);
+            } else {
+                ITEM_CATEGORIES.forEach((category, index) => {
+                    const categoryItems = varer.filter((vare) => vare.category === category);
+                    if (categoryItems.length === 0) return;
+
+                    const group = document.createElement("li");
+                    group.className = "category-group";
+
+                    const heading = document.createElement("h3");
+                    heading.className = "category-title";
+                    heading.id = `category-title-${index}`;
+                    heading.textContent = category;
+
+                    const groupList = document.createElement("ul");
+                    groupList.className = "category-items";
+                    groupList.setAttribute("aria-labelledby", heading.id);
+
+                    categoryItems.forEach((vare) => {
+                        const item = document.createElement("li");
+                        item.className = "list-item";
+                        item.dataset.itemId = vare.id;
+                        if (vare.completed) item.classList.add("is-completed");
+
+                        if (editingId === vare.id) {
+                            renderEditForm(item, vare);
+                        } else {
+                            renderListItem(item, vare);
+                        }
+
+                        groupList.appendChild(item);
+                    });
+
+                    group.append(heading, groupList);
+                    liste.appendChild(group);
+                });
             }
-
-            varer.forEach((vare) => {
-                const item = document.createElement("li");
-                item.className = "list-item";
-                if (vare.completed) item.classList.add("is-completed");
-
-                if (editingId === vare.id) {
-                    renderEditForm(item, vare);
-                } else {
-                    renderListItem(item, vare);
-                }
-
-                liste.appendChild(item);
-            });
 
             const completedCount = varer.filter((vare) => vare.completed).length;
             const remainingCount = varer.length - completedCount;
@@ -975,6 +1189,37 @@
                 item.appendChild(createProductPlaceholder());
             }
 
+            const detail = document.createElement("div");
+            detail.className = "item-detail";
+            const quantityControl = document.createElement("div");
+            quantityControl.className = "quantity-control";
+
+            const decreaseButton = document.createElement("button");
+            decreaseButton.type = "button";
+            decreaseButton.className = "quantity-button";
+            decreaseButton.textContent = "-";
+            decreaseButton.disabled = vare.quantity <= 1;
+            decreaseButton.dataset.quantityAction = "decrease";
+            decreaseButton.setAttribute("aria-label", `Reduser antall ${vare.name}`);
+            decreaseButton.addEventListener("click", () => adjustQuantity(vare, -1, "decrease"));
+
+            const quantityValue = document.createElement("span");
+            quantityValue.className = "quantity-value";
+            quantityValue.textContent = `${vare.quantity} stk`;
+            quantityValue.setAttribute("aria-label", `${vare.quantity} stk`);
+
+            const increaseButton = document.createElement("button");
+            increaseButton.type = "button";
+            increaseButton.className = "quantity-button";
+            increaseButton.textContent = "+";
+            increaseButton.disabled = vare.quantity >= Number.MAX_SAFE_INTEGER;
+            increaseButton.dataset.quantityAction = "increase";
+            increaseButton.setAttribute("aria-label", `Øk antall ${vare.name}`);
+            increaseButton.addEventListener("click", () => adjustQuantity(vare, 1, "increase"));
+
+            quantityControl.append(decreaseButton, quantityValue, increaseButton);
+            detail.append(name, quantityControl);
+
             const actions = document.createElement("div");
             actions.className = "item-actions";
 
@@ -1004,7 +1249,26 @@
             });
 
             actions.append(editButton, deleteButton);
-            item.append(name, actions);
+            item.append(detail, actions);
+        }
+
+        function adjustQuantity(item, change, action) {
+            const currentItem = varer.find((vare) => vare.id === item.id);
+            if (!currentItem) return;
+
+            const quantity = currentItem.quantity + change;
+            if (!Number.isSafeInteger(quantity) || quantity < 1) return;
+
+            currentItem.quantity = quantity;
+            saveItemToCloud(currentItem);
+            renderList();
+
+            const updatedRow = Array.from(liste.querySelectorAll(".list-item"))
+                .find((row) => row.dataset.itemId === currentItem.id);
+            const updatedButton = updatedRow?.querySelector(`[data-quantity-action="${action}"]`);
+            (updatedButton && !updatedButton.disabled
+                ? updatedButton
+                : updatedRow?.querySelector('[data-quantity-action="increase"]'))?.focus();
         }
 
         function createProductPlaceholder() {
@@ -1065,19 +1329,25 @@
             item.appendChild(form);
         }
 
-        function addItem(name, imageUrl = null) {
+        function addItem(name, imageUrl = null, quantity = 1, category = guessCategory(name)) {
             const safeImageUrl = getSafeImageUrl(imageUrl);
             const item = {
                 id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
                 name,
                 completed: false,
-                createdAt: Date.now()
+                createdAt: Date.now(),
+                quantity: Number.isSafeInteger(quantity) && quantity >= 1 ? quantity : 1,
+                category: ITEM_CATEGORIES.includes(category) ? category : guessCategory(name)
             };
             if (safeImageUrl) item.imageUrl = safeImageUrl;
             varer.push(item);
             saveItemToCloud(item);
             announce(`${name} er lagt til.`);
             inputFelt.value = "";
+            quantityInput.value = "1";
+            quantityInput.setCustomValidity("");
+            categoryInput.value = "auto";
+            updateAutoCategoryOption();
             renderList();
             return item;
         }
@@ -1100,10 +1370,23 @@
                 inputFelt.focus();
                 return;
             }
-            const item = addItem(name);
+            const quantity = getQuantityInputValue();
+            if (quantity === null) {
+                quantityInput.setCustomValidity("Antall må være et helt tall på minst 1.");
+                quantityInput.reportValidity();
+                return;
+            }
+            quantityInput.setCustomValidity("");
+            const category = categoryInput.value === "auto"
+                ? guessCategory(name)
+                : categoryInput.value;
+            const item = addItem(name, null, quantity, category);
             findImageForManualItem(item);
             inputFelt.focus();
         });
+
+        inputFelt.addEventListener("input", updateAutoCategoryOption);
+        quantityInput.addEventListener("input", () => quantityInput.setCustomValidity(""));
 
         clearButton.addEventListener("click", () => {
             const removedCount = varer.filter((vare) => vare.completed).length;
@@ -1115,6 +1398,7 @@
             renderList();
         });
 
+        updateAutoCategoryOption();
         renderList();
         startCloudSync();
     </script>
