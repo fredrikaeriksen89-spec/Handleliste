@@ -347,12 +347,34 @@
         }
 
         .item-detail {
-            display: flex;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
             flex: 1;
             align-items: center;
-            justify-content: space-between;
-            gap: 8px;
+            gap: 6px 8px;
             min-width: 0;
+        }
+
+        .item-category-select {
+            grid-column: 1 / -1;
+            justify-self: start;
+            width: auto;
+            max-width: 100%;
+            min-height: 34px;
+            border: 1px solid #dce5dd;
+            border-radius: 999px;
+            padding: 5px 28px 5px 10px;
+            background: #f5f8f4;
+            color: #42634c;
+            font: inherit;
+            font-size: 0.78rem;
+            font-weight: 650;
+            cursor: pointer;
+        }
+
+        .item-category-select:focus-visible {
+            outline: 3px solid #78a88a;
+            outline-offset: 2px;
         }
 
         .quantity-control {
@@ -607,6 +629,131 @@
             "Drikke",
             "Annet"
         ];
+        function normalizeCategoryName(value) {
+            return String(value || "")
+                .toLocaleLowerCase("no")
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9æøå]+/g, " ")
+                .trim()
+                .replace(/\s+/g, " ");
+        }
+        const CATEGORY_KEYWORDS = [
+            {
+                category: "Frysevarer",
+                terms: [
+                    "frossen", "frosne", "fryst", "frysevare", "frysevarer", "iskrem", "is krem",
+                    "softis", "sorbet", "ispinne", "iskake", "frossenpizza", "frossen pai",
+                    "fiskepinner", "pommes frites", "potetbåter", "vårrull", "vårruller",
+                    "fryste bær", "frosne erter", "frossen grønnsaksblanding", "frossen grønnsaker",
+                    "frossenlasagne", "frossenbrød", "frossen kylling", "frossen fisk",
+                    "frossenfrukt", "isbit", "isblokker"
+                ]
+            },
+            {
+                category: "Frukt & grønt",
+                terms: [
+                    "eple", "epler", "banan", "bananer", "appelsin", "appelsiner", "mandarin",
+                    "klementin", "sitron", "lime", "grapefrukt", "pære", "pærer", "druer", "drue",
+                    "jordbær", "blåbær", "bringebær", "bjørnebær", "rips", "solbær", "stikkelsbær",
+                    "plomme", "fersken", "nektarin", "aprikos", "kirsebær", "melon", "vannmelon",
+                    "honningmelon", "ananas", "mango", "papaya", "kiwi", "avokado", "kokosnøtt",
+                    "granateple", "dadler", "fiken", "tomat", "cherrytomat", "plommetomat",
+                    "agurk", "salat", "isbergsalat", "hjertesalat", "ruccola", "spinat", "grønnkål",
+                    "kål", "hodekål", "rødkål", "kinakål", "blomkål", "brokkoli", "rosenkål",
+                    "gulrot", "gulrøtter", "potet", "poteter", "søtpotet", "løk", "rødløk",
+                    "vårløk", "purre", "hvitløk", "sjalottløk", "paprika", "chili", "mais",
+                    "sopp", "champignon", "sjampinjong", "asparges", "selleri", "stangselleri",
+                    "pastinakk", "persillerot", "sellerirot", "kålrot", "nepe", "reddik", "sukkerert",
+                    "sukkererter", "erter", "aubergine", "squash", "gresskar", "bønnespirer",
+                    "alfalfaspirer", "urter", "persille", "koriander", "basilikum", "dill",
+                    "gressløk", "timian", "rosmarin", "mynte", "ingefær", "rødbete", "rødbeter",
+                    "artisjokk", "fenikkel", "fennikel", "pak choi", "bok choy"
+                ]
+            },
+            {
+                category: "Meieri & egg",
+                terms: [
+                    "melk", "lettmelk", "helmelk", "skummetmelk", "minimelk", "havremelk",
+                    "laktosefri melk", "sjokolademelk", "kefir", "kulturmelk", "yoghurt", "yogurt",
+                    "gresk yoghurt", "drikkeyoghurt", "skyr", "kesam", "kvarg", "cottage cheese",
+                    "fløte", "matfløte", "kremfløte", "kaffefløte", "rømme", "lettrømme", "creme fraiche",
+                    "crème fraiche", "smør", "margarin", "meierismør", "ost", "gulost", "hvitost",
+                    "brunost", "geitost", "fløtemysost", "prim", "cheddar", "parmesan", "mozzarella",
+                    "fetaost", "brie", "camembert", "ricotta", "mascarpone", "kremost", "smøreost",
+                    "skinkeost", "tubeost", "blåmuggost", "norvegia", "jarlsberg", "synnøve",
+                    "egg", "egg hvite", "eggehvite", "eggeplomme", "vaktelegg", "dessertost",
+                    "melkedrikk", "vaniljekesam", "vaniljesaus", "pudding"
+                ]
+            },
+            {
+                category: "Kjøtt & fisk",
+                terms: [
+                    "kjøtt", "kjøttdeig", "karbonadedeig", "kjøttkaker", "medisterkaker",
+                    "kjøttboller", "kjøttpølse", "kylling", "kyllingfilet", "kyllinglår",
+                    "kyllingvinger", "kalkun", "and", "svin", "svinekjøtt", "svinekotelett",
+                    "ribbe", "medister", "biff", "storfekjøtt", "entrecote", "ytrefilet",
+                    "indrefilet", "biffstrimler", "lam", "lammekjøtt", "lammekotelett",
+                    "pølse", "pølser", "grillpølse", "wienerpølse", "bratwurst", "bacon",
+                    "skinke", "kokt skinke", "røkt skinke", "spekeskinke", "spekepølse",
+                    "salami", "servelat", "fårepølse", "morrpølse", "fenalår", "leverpostei",
+                    "paté", "pate", "pålegg", "kjøttpålegg", "hamburger", "hamburgerkjøtt",
+                    "fisk", "laks", "røkelaks", "ørret", "torsk", "sei", "makrell", "sild",
+                    "hyse", "kolje", "kveite", "breiflabb", "steinbit", "ansjos", "sardiner",
+                    "fiskekaker", "fiskeboller", "fiskegrateng", "krabbe", "reker", "scampi",
+                    "kreps", "blåskjell", "kamskjell", "tunfisk", "fiskefilet", "fiske filet",
+                    "rogn", "sushi", "surimi"
+                ]
+            },
+            {
+                category: "Bakervarer",
+                terms: [
+                    "brød", "kneipp", "kneippbrød", "loff", "loffbrød", "grovbrød",
+                    "grovt brød", "skivebrød", "formbrød", "surdeigsbrød", "rugbrød",
+                    "landbrød", "baguette", "rundstykke", "rundstykker", "bagel",
+                    "pita", "pitabrød", "naan", "tortilla", "lefse", "lompe", "polarbrød",
+                    "knekkebrød", "flatbrød", "toastbrød", "hamburgerbrød", "pølsebrød",
+                    "wrap", "wraps", "croissant", "wienerbrød", "bolle", "boller", "skillingsbolle",
+                    "kanelsnurr", "muffins", "donut", "smultring", "bakverk", "kake", "bløtkake",
+                    "sjokoladekake", "ostekake", "kringle", "pai", "terte", "brownie", "marengs",
+                    "vaffel", "vafler", "pannekake", "pannekaker", "scones", "rullekake"
+                ]
+            },
+            {
+                category: "Drikke",
+                terms: [
+                    "vann", "mineralvann", "brus", "cola", "pepsi", "fanta", "sprite", "solo",
+                    "juice", "appelsinjuice", "eplejuice", "saft", "squash", "iste",
+                    "energidrikk", "sportsdrikk", "kaffe", "kaffebønner", "kaffekapsel",
+                    "te", "teposer", "kakao", "øl", "pils", "cider", "vin", "rødvin", "hvitvin",
+                    "rosévin", "musserende", "champagne", "prosecco", "brennevin", "whisky",
+                    "whiskey", "vodka", "rom", "gin", "likør", "alkoholfri øl", "kombucha",
+                    "kokosvann", "smoothie", "proteindrikk"
+                ]
+            },
+            {
+                category: "Tørrvarer",
+                terms: [
+                    "pasta", "spaghetti", "makaroni", "nudler", "ris", "basmatiris", "jasminris",
+                    "couscous", "bulgur", "quinoa", "mel", "hvetemel", "grovt mel", "rugmel",
+                    "havregryn", "gryn", "müsli", "musli", "granola", "frokostblanding",
+                    "cornflakes", "knekkebrød", "sukker", "brunt sukker", "melis", "sirup",
+                    "salt", "pepper", "krydder", "kanel", "kardemomme", "paprikapulver", "buljong",
+                    "gjær", "bakepulver", "vaniljesukker", "kakao", "olje", "olivenolje",
+                    "rapsolje", "eddik", "soyasaus", "worcestersaus", "sennep", "ketchup",
+                    "majones", "pesto", "dressing", "saus", "tomatpure", "tomatpuré", "hermetikk",
+                    "hermetiske tomater", "bønner", "kidneybønner", "kikerter", "linser", "mais",
+                    "tunfiskboks", "kokosmelk", "syltetøy", "marmelade", "honning", "peanøttsmør",
+                    "sjokoladepålegg", "nugatti", "sjokolade", "godteri", "lakris", "drops",
+                    "chips", "potetgull", "popcorn", "kjeks", "saltstenger", "nøtter", "mandler",
+                    "rosiner", "tørket frukt", "proteinbar", "energibar", "riskaker", "taco",
+                    "tacokrydder", "tacosaus", "salsa", "wrap", "matpapir", "kaffefilter"
+                ]
+            }
+        ].map((entry) => ({
+            category: entry.category,
+            terms: entry.terms.map(normalizeCategoryName)
+        }));
         const listIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const currentUrl = new URL(window.location.href);
         const requestedListId = currentUrl.searchParams.get("list");
@@ -621,6 +768,7 @@
             }
         }
         const storageKey = `${legacyStorageKey}-${listId}`;
+        const learnedStorageKey = `${storageKey}-learnedCategories`;
         const inputFelt = document.getElementById("vareInput");
         const quantityInput = document.getElementById("quantityInput");
         const categoryInput = document.getElementById("categoryInput");
@@ -647,6 +795,7 @@
             measurementId: "G-XFC6NEH3M0"
         };
         let itemsCollection = null;
+        let learnedCategoriesCollection = null;
         if (window.location.protocol === "file:") {
             shareButton.disabled = true;
             shareHelp.textContent = "Publiser appen på HTTPS for å synkronisere og dele listen.";
@@ -657,13 +806,17 @@
                 const app = window.firebase.initializeApp(firebaseConfig);
                 const firestore = window.firebase.firestore();
                 itemsCollection = firestore.collection("lists").doc(listId).collection("items");
+                learnedCategoriesCollection = firestore.collection("lists").doc(listId).collection("learnedCategories");
             } catch (error) {
                 syncStatus.textContent = "Skysynkronisering er ikke tilgjengelig.";
                 showError(`Kunne ikke koble til Firebase. Listen lagres bare på denne enheten. ${error.message || ""}`.trim());
             }
         }
         let needsLegacyMigration = false;
+        let learnedCategories = new Map();
+        let learnedCategoriesSnapshotReceived = false;
         let varer = loadItems();
+        loadLearnedCategories();
         let editingId = null;
         let scanner = null;
         let scannerState = "idle";
@@ -681,26 +834,134 @@
         }
 
         function guessCategory(itemName) {
-            const name = String(itemName || "")
-                .toLocaleLowerCase("no")
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-                .replace(/[^a-z0-9æøå]+/g, " ")
-                .trim();
-            const matches = (terms) => terms.some((term) => (` ${name} `).includes(` ${term} `));
+            const name = normalizeCategoryName(itemName);
+            const paddedName = ` ${name} `;
+            const match = CATEGORY_KEYWORDS.find(({ terms }) =>
+                terms.some((term) => paddedName.includes(` ${term} `))
+            );
+            return match ? match.category : "Annet";
+        }
 
-            if (matches(["frossen", "frosne", "fryst", "iskrem", "is"])) return "Frysevarer";
-            if (matches(["eple", "epler", "banan", "bananer", "appelsin", "pære", "drue", "jordbær", "blåbær", "bringebær", "sitron", "lime", "mango", "avokado", "tomat", "agurk", "salat", "gulrot", "potet", "løk", "paprika", "brokkoli", "blomkål", "spinat"])) return "Frukt & grønt";
-            if (matches(["melk", "ost", "yoghurt", "egg", "smør", "rømme", "fløte", "krem", "kesam", "skyr", "cottage cheese", "creme fraiche"])) return "Meieri & egg";
-            if (matches(["kjøtt", "kjott", "kylling", "svin", "biff", "bacon", "pølse", "polse", "skinke", "laks", "torsk", "fisk", "reker", "ørret", "orret", "sei", "kjøttdeig", "kjottdeig", "karbonadedeig"])) return "Kjøtt & fisk";
-            if (matches(["brød", "brod", "kneipp", "loff", "baguette", "rundstykke", "bolle", "bakverk", "kake", "lefse"])) return "Bakervarer";
-            if (matches(["vann", "brus", "juice", "saft", "øl", "ol", "vin", "mineralvann", "energidrikk"])) return "Drikke";
-            if (matches(["pasta", "ris", "mel", "sukker", "salt", "havre", "gryn", "bønner", "bonner", "linser", "hermetikk", "olje", "krydder", "kaffe", "te", "nøtter", "notter", "sjokolade", "chips", "kjeks"])) return "Tørrvarer";
-            return "Annet";
+        function getLearnedCategoryKey(name) {
+            return normalizeCategoryName(name);
+        }
+
+        function loadLearnedCategories() {
+            try {
+                const saved = localStorage.getItem(learnedStorageKey);
+                if (!saved) return;
+                const parsed = JSON.parse(saved);
+                if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                    throw new Error("Ugyldig format");
+                }
+
+                Object.entries(parsed).forEach(([nameKey, value]) => {
+                    const normalizedKey = getLearnedCategoryKey(nameKey);
+                    if (!normalizedKey || !value || !ITEM_CATEGORIES.includes(value.category)) return;
+                    learnedCategories.set(normalizedKey, {
+                        category: value.category,
+                        updatedAt: Number.isSafeInteger(value.updatedAt) ? value.updatedAt : 0
+                    });
+                });
+            } catch (error) {
+                showError("Tidligere kategorivalg kunne ikke leses fra nettleseren.");
+            }
+        }
+
+        function saveLearnedCategoriesLocally() {
+            try {
+                localStorage.setItem(learnedStorageKey, JSON.stringify(Object.fromEntries(learnedCategories)));
+                return true;
+            } catch (error) {
+                showError("Kategorivalgene kunne ikke lagres på denne enheten.");
+                return false;
+            }
+        }
+
+        function rememberLearnedCategory(nameKey, category, updatedAt, persist = true) {
+            const normalizedKey = getLearnedCategoryKey(nameKey);
+            if (!normalizedKey || !ITEM_CATEGORIES.includes(category) || !Number.isSafeInteger(updatedAt)) return false;
+
+            const existing = learnedCategories.get(normalizedKey);
+            if (existing && (
+                existing.updatedAt > updatedAt ||
+                (existing.updatedAt === updatedAt && existing.category === category)
+            )) {
+                return false;
+            }
+
+            learnedCategories.set(normalizedKey, { category, updatedAt });
+            if (persist) saveLearnedCategoriesLocally();
+            updateAutoCategoryOption();
+            return true;
+        }
+
+        async function getLearnedCategory(name) {
+            const nameKey = getLearnedCategoryKey(name);
+            if (!nameKey) return null;
+
+            const cached = learnedCategories.get(nameKey);
+            if (!learnedCategoriesCollection || learnedCategoriesSnapshotReceived) {
+                return cached ? cached.category : null;
+            }
+
+            try {
+                const snapshot = await learnedCategoriesCollection.doc(encodeURIComponent(nameKey)).get();
+                if (!snapshot.exists) return cached ? cached.category : null;
+                const data = snapshot.data();
+                if (
+                    !data ||
+                    data.nameKey !== nameKey ||
+                    !ITEM_CATEGORIES.includes(data.category) ||
+                    !Number.isSafeInteger(data.updatedAt) ||
+                    data.updatedAt < 1
+                ) {
+                    throw new Error("Kategorien som ble hentet, er ugyldig.");
+                }
+                rememberLearnedCategory(nameKey, data.category, data.updatedAt);
+                return learnedCategories.get(nameKey).category;
+            } catch (error) {
+                showError(`Kunne ikke hente tidligere kategori for «${name}». ${cached ? "Det lagrede lokale valget brukes." : "Automatisk forslag brukes."} ${error.message || ""}`.trim());
+                return cached ? cached.category : null;
+            }
+        }
+
+        async function resolveItemCategory(name, selectedCategory) {
+            if (selectedCategory !== "auto" && ITEM_CATEGORIES.includes(selectedCategory)) {
+                return selectedCategory;
+            }
+            return await getLearnedCategory(name) || guessCategory(name);
+        }
+
+        async function saveLearnedCategory(name, category) {
+            const nameKey = getLearnedCategoryKey(name);
+            if (!nameKey || !ITEM_CATEGORIES.includes(category)) return false;
+
+            const previous = learnedCategories.get(nameKey);
+            const updatedAt = Math.max(Date.now(), (previous?.updatedAt || 0) + 1);
+            rememberLearnedCategory(nameKey, category, updatedAt);
+            if (!learnedCategoriesCollection) return true;
+
+            try {
+                await learnedCategoriesCollection.doc(encodeURIComponent(nameKey)).set({
+                    nameKey,
+                    category,
+                    updatedAt
+                });
+                return true;
+            } catch (error) {
+                syncStatus.textContent = "Kategorivalget er ikke synkronisert.";
+                showError(`Kategorien er lagret lokalt, men kunne ikke synkroniseres. ${error.message || ""}`.trim());
+                return false;
+            }
         }
 
         function updateAutoCategoryOption() {
-            autoCategoryOption.textContent = `Automatisk: ${guessCategory(inputFelt.value)}`;
+            const learned = learnedCategories.get(getLearnedCategoryKey(inputFelt.value));
+            const category = learned ? learned.category : guessCategory(inputFelt.value);
+            autoCategoryOption.textContent = learned
+                ? `Automatisk: ${category} (lagret)`
+                : `Automatisk: ${category}`;
         }
 
         function getQuantityInputValue() {
@@ -861,6 +1122,30 @@
         function startCloudSync() {
             if (!itemsCollection) return;
             syncStatus.textContent = "Kobler til skyen …";
+            if (learnedCategoriesCollection) {
+                learnedCategoriesCollection.onSnapshot(
+                    { includeMetadataChanges: true },
+                    (snapshot) => {
+                        let updatedCache = false;
+                        snapshot.forEach((document) => {
+                            const data = document.data();
+                            if (!data || getLearnedCategoryKey(data.nameKey) !== data.nameKey) return;
+                            updatedCache = rememberLearnedCategory(
+                                data.nameKey,
+                                data.category,
+                                data.updatedAt,
+                                false
+                            ) || updatedCache;
+                        });
+                        if (updatedCache) saveLearnedCategoriesLocally();
+                        if (!snapshot.metadata.fromCache) learnedCategoriesSnapshotReceived = true;
+                        updateAutoCategoryOption();
+                    },
+                    (error) => {
+                        showError(`Kunne ikke synkronisere lærte kategorier. ${error.message || ""}`.trim());
+                    }
+                );
+            }
             let receivedServerSnapshot = false;
             const connectionTimeout = window.setTimeout(() => {
                 if (receivedServerSnapshot) return;
@@ -1093,10 +1378,12 @@
                     return;
                 }
                 quantityInput.setCustomValidity("");
-                const category = categoryInput.value === "auto"
-                    ? guessCategory(productName.trim())
-                    : categoryInput.value;
+                const selectedCategory = categoryInput.value;
+                const category = await resolveItemCategory(productName.trim(), selectedCategory);
                 addItem(productName.trim(), imageUrl, quantity, category);
+                if (selectedCategory !== "auto") {
+                    await saveLearnedCategory(productName.trim(), category);
+                }
                 scannerStatus.textContent = `Fant «${productName.trim()}» og la den til i listen.`;
             } catch (error) {
                 inputFelt.value = barcode;
@@ -1218,7 +1505,31 @@
             increaseButton.addEventListener("click", () => adjustQuantity(vare, 1, "increase"));
 
             quantityControl.append(decreaseButton, quantityValue, increaseButton);
-            detail.append(name, quantityControl);
+            const categorySelect = document.createElement("select");
+            categorySelect.className = "item-category-select";
+            categorySelect.setAttribute("aria-label", `Kategori for ${vare.name}`);
+            ITEM_CATEGORIES.forEach((category) => {
+                const option = document.createElement("option");
+                option.value = category;
+                option.textContent = category;
+                categorySelect.appendChild(option);
+            });
+            categorySelect.value = vare.category;
+            categorySelect.addEventListener("change", () => {
+                const currentItem = varer.find((entry) => entry.id === vare.id);
+                if (!currentItem || !ITEM_CATEGORIES.includes(categorySelect.value)) return;
+
+                currentItem.category = categorySelect.value;
+                saveItemToCloud(currentItem);
+                saveLearnedCategory(currentItem.name, currentItem.category);
+                announce(`${currentItem.name} flyttet til ${currentItem.category}. Dette valget huskes neste gang.`);
+                renderList();
+                const updatedRow = Array.from(liste.querySelectorAll(".list-item"))
+                    .find((row) => row.dataset.itemId === currentItem.id);
+                updatedRow?.querySelector(".item-category-select")?.focus();
+            });
+
+            detail.append(name, quantityControl, categorySelect);
 
             const actions = document.createElement("div");
             actions.className = "item-actions";
@@ -1363,7 +1674,7 @@
             }
         });
 
-        addForm.addEventListener("submit", (event) => {
+        addForm.addEventListener("submit", async (event) => {
             event.preventDefault();
             const name = inputFelt.value.trim();
             if (!name) {
@@ -1377,12 +1688,20 @@
                 return;
             }
             quantityInput.setCustomValidity("");
-            const category = categoryInput.value === "auto"
-                ? guessCategory(name)
-                : categoryInput.value;
-            const item = addItem(name, null, quantity, category);
-            findImageForManualItem(item);
-            inputFelt.focus();
+            const selectedCategory = categoryInput.value;
+            const submitButton = addForm.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            try {
+                const category = await resolveItemCategory(name, selectedCategory);
+                const item = addItem(name, null, quantity, category);
+                if (selectedCategory !== "auto") {
+                    await saveLearnedCategory(name, category);
+                }
+                findImageForManualItem(item);
+                inputFelt.focus();
+            } finally {
+                submitButton.disabled = false;
+            }
         });
 
         inputFelt.addEventListener("input", updateAutoCategoryOption);
